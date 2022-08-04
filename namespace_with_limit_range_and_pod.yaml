@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: giropops2
+spec:
+  finalizers:
+    - kubernetes
+
+---
+
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: resources-limited
+  namespace: giropops2
+spec:
+  limits:
+  - default:
+      cpu: 1
+      memory: 256Mi
+    defaultRequest:
+      cpu: 0.5
+      memory: 128Mi
+    type: Container
+
+---
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: limited-pod
+  namespace: giropops2
+spec:
+  containers:
+    - name: my-container
+      image: nginx
