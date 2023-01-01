@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       labels:
-        system: Strigus
+        ssd: "true"
     spec:
       containers:
         - name: nginx
