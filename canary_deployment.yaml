@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: giropops-v1
+spec:
+  selector:
+    matchLabels:
+      app: giropops
+  replicas: 10
+  template:
+    metadata:
+      labels:
+        app: giropops
+        version: "1.0.0"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "32111"
+    spec:
+      containers:
+        - name: giropops
+          image: linuxtips/nginx-prometheus-exporter:1.0.0
+          env:
+            - name: VERSION
+              value: "1.0.0"
+          ports:
+            - containerPort: 80
+            - containerPort: 32111
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: giropops
+    run: nginx
+    track: stable
+  name: giropops
+  namespace: default
+spec:
+  externalTrafficPolicy: Cluster
+  ports:
+    - nodePort: 32222
+      name: http
+      port: 80
+      protocol: TCP
+      targetPort: 80
+    - nodePort: 32111
+      name: prometheus
+      port: 32111
+      protocol: TCP
+      targetPort: 32111
+  selector:
+    app: giropops
+  sessionAffinity: None
+  type: NodePort
+
