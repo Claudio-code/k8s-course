@@ -1,19 +1,78 @@
 apiVersion: v1
-kind: ConfigMap
+kind: Namespace
 metadata:
-  name: nginx-ingress-controller-conf
+  name: ingress
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: nginx-role
   namespace: ingress
-  label:
-    app: nginx-ingress-lb
-data:
-  enable-vts-status: 'true'
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: nginx-role
+subjects:
+- kind: ServiceAccount
+  name: nginx
+  namespace: ingress
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: nginx-role
+rules:
+- apiGroups:
+  - ""
+  - "extensions"
+  resources:
+  - configmaps
+  - secrets
+  - endpoints
+  - ingresses
+  - nodes
+  - pods
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - list
+  - watch
+  - get
+  - update
+- apiGroups:
+  - "extensions"
+  resources:
+  - ingresses
+  verbs:
+  - get
+
 
 ---
 
 apiVersion: v1
-kind: Namespace
+kind: ServiceAccount
 metadata:
-  name: ingress
+  name: nginx
+  namespace: ingress
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-ingress-controller-conf
+  namespace: ingress
+data:
+  enable-vts-status: 'true'
 
 ---
 
