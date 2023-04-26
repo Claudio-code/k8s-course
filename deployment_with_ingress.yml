@@ -5,6 +5,24 @@ metadata:
 
 ---
 
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nginx
+  namespace: ingress
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-ingress-controller-conf
+  namespace: ingress
+data:
+  enable-vts-status: 'true'
+
+---
+
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -55,27 +73,64 @@ rules:
   verbs:
   - get
 
-
 ---
 
-apiVersion: v1
-kind: ServiceAccount
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: nginx
+  name: nginx-ingress-controller
   namespace: ingress
+  labels:
+    app: nginx-ingress-lb
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: nginx-ingress-lb
+  template:
+    metadata:
+      labels:
+        app: nginx-ingress-lb
+    spec:
+      terminationGracePeriodSeconds: 60
+      serviceAccount: nginx
+      containers:
+        - name: nginx-ingress-controller
+          image: quay.io/kubernectes-ingress-controller/nginx-ingress-controller:0.9.0
+          imagePullPolicy: Always
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 10254
+              scheme: HTTP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 10254
+              scheme: HTTP
+            initialDelaySeconds: 10
+            timeoutSeconds: 5
+          args:
+            - /nginx-ingress-controller
+            - --default-backend-service=ingress/default-backend
+            - --configmap=ingress/nginx-ingress-controller-conf
+            - --v=2
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          ports:
+            - containerPort: 80
+            - containerPort: 18080
+
 
 ---
-
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-ingress-controller-conf
-  namespace: ingress
-data:
-  enable-vts-status: 'true'
-
----
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -212,3 +267,49 @@ spec:
   selector:
     app: default-backend
 
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-ingress
+spec:
+  rules:
+  - host: single-node
+    http:
+      paths:
+      - backend:
+          service:
+            name: nginx-ingress
+            port:
+              number: 18080
+        path: /nginx_status
+        pathType: Prefix
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  name: app-ingress
+spec:
+  rules:
+  - host: single-node
+    http:
+      paths:
+      - backend:
+          service:
+            name: appsvc1
+            port:
+              number: 80
+        path: /app1
+        pathType: Prefix
+      - backend:
+          service:
+            name: appsvc2
+            port:
+              number: 80
+        path: /app2
+        pathType: Prefix
